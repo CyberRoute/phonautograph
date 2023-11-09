@@ -22,18 +22,29 @@ class AudioRecorderPlayer(QWidget):
         self.record_button.clicked.connect(self.start_recording)
         self.record_button.setIconSize(QtCore.QSize(48, 48))  # Set icon size
         self.record_button.setToolTip("Start recording audio")
+        self.record_button.setStyleSheet("background-color: #555555;")
 
         self.stop_button = QPushButton(QIcon.fromTheme("media-playback-stop"), "", self)
         self.stop_button.clicked.connect(self.stop_recording)
         self.stop_button.setEnabled(False)
         self.stop_button.setIconSize(QtCore.QSize(48, 48))  # Set icon size
         self.stop_button.setToolTip("Stop recording audio")
+        self.stop_button.setStyleSheet("background-color: #555555;")
 
         self.play_button = QPushButton(QIcon.fromTheme("media-playback-start"), "", self)
         self.play_button.clicked.connect(self.play_audio)
         self.play_button.setEnabled(False)
         self.play_button.setIconSize(QtCore.QSize(48, 48))  # Set icon size
         self.play_button.setToolTip("Play selected audio file")
+        self.play_button.setStyleSheet("background-color: #555555;")
+
+        self.pause_button = QPushButton(QIcon.fromTheme("media-playback-pause"), "", self)
+        self.pause_button.clicked.connect(self.pause_audio)
+        self.pause_button.setEnabled(False)
+        self.pause_button.setIconSize(QtCore.QSize(48, 48))
+        self.pause_button.setToolTip("Pause audio playback")
+        self.pause_button.setStyleSheet("background-color: #555555;")
+
 
         self.status_label = QLabel("Status: Ready", self)
 
@@ -44,7 +55,9 @@ class AudioRecorderPlayer(QWidget):
         button_layout.addWidget(self.record_button)
         button_layout.addWidget(self.stop_button)
         button_layout.addWidget(self.play_button)
+        button_layout.addWidget(self.pause_button)
         button_layout.addWidget(self.status_label)
+
 
         # Nested QVBoxLayout for other widgets
         control_layout = QVBoxLayout()
@@ -65,7 +78,6 @@ class AudioRecorderPlayer(QWidget):
         self.plot_canvas = self.plot_widget.add_subplot(111)
         self.plot_canvas.set_xlabel('Time')
         self.plot_canvas.set_ylabel('Amplitude')
-        self.plot_canvas.set_ylim(-32768, 32768)  # Assuming 16-bit audio
         control_layout.addWidget(self.plot_widget.canvas)
 
         self.setLayout(control_layout)
@@ -97,7 +109,7 @@ class AudioRecorderPlayer(QWidget):
         return detected_language, result.text
     
 
-    def plot_waveform(self):
+    def plot_waveform(self, cursor_position=None):
         if self.frames:
             samples = np.frombuffer(b''.join(self.frames), dtype=np.int16)
             x_values = np.arange(0, len(samples), 1)
@@ -105,10 +117,23 @@ class AudioRecorderPlayer(QWidget):
             self.plot_canvas.set_xlabel('Time')
             self.plot_canvas.set_ylabel('Amplitude')
             self.plot_canvas.set_ylim(-32768, 32768)
-            self.plot_canvas.plot(x_values, samples)
+            self.plot_canvas.set_facecolor('black')
+            self.plot_canvas.plot(x_values, samples, color='green')
+
+            # Add horizontal lines for amplitudes
+            self.plot_canvas.axhline(y=0, color='white', linewidth=1, linestyle='--')
+            self.plot_canvas.axhline(y=16384, color='white', linewidth=1, linestyle='--')
+            self.plot_canvas.axhline(y=-16384, color='white', linewidth=1, linestyle='--')
+
+            # Set x-ticks and labels
+            num_ticks = 10
+            x_tick_positions = np.linspace(0, len(samples) - 1, num_ticks)
+            x_tick_labels = np.linspace(0, len(samples) - 1, num_ticks) / self.sample_rate
+            self.plot_canvas.set_xticks(x_tick_positions)
+            self.plot_canvas.set_xticklabels(['{:.2f}s'.format(t) for t in x_tick_labels])
             self.plot_widget.canvas.draw()
-        
-        
+
+
     def start_recording(self):
         self.record_button.setEnabled(False)
         self.stop_button.setEnabled(True)
@@ -155,7 +180,6 @@ class AudioRecorderPlayer(QWidget):
         self.stop_button.setEnabled(False)
         self.play_button.setEnabled(True)
         self.status_label.setText("Recording stopped")
-
         if self.audio_stream and self.audio_stream.is_active():
             self.audio_stream.stop_stream()
             self.audio_stream.close()
@@ -176,6 +200,11 @@ class AudioRecorderPlayer(QWidget):
             wf.setframerate(self.sample_rate)
             wf.writeframes(b''.join(self.frames))
             wf.close()
+
+    def pause_audio(self):
+        # Pause the audio playback logic here
+        # Update UI or perform any other necessary actions
+        pass
 
     def play_audio(self):
         selected_item = self.file_list_widget.currentItem()
