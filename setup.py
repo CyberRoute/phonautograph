@@ -18,7 +18,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'audio_recorder_player = phonautograph:main',
+            'audio_recorder_player = main:main',
         ],
     },
 )

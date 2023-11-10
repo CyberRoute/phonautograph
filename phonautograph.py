@@ -2,7 +2,6 @@ import datetime
 import sys
 import os
 import threading
-import time
 import wave
 import pyaudio
 import whisper
@@ -244,12 +243,3 @@ class AudioRecorderPlayer(QWidget):
                 p.terminate()
             else:
                 print("File not found:", file_path)  # Print an error message if the file doesn't exist
-
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = AudioRecorderPlayer()
-    window.show()
-    sys.exit(app.exec_())
-
