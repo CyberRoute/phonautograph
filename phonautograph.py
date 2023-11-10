@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QListWidget, QListWidgetItem
 from PyQt5.QtGui import QIcon
 from PyQt5 import QtCore
+from transcriber import SoundTranscriber
 
 class AudioRecorderPlayer(QWidget):
     def __init__(self):
@@ -44,6 +45,12 @@ class AudioRecorderPlayer(QWidget):
         self.pause_button.setToolTip("Pause audio playback")
         self.pause_button.setStyleSheet("background-color: #555555;")
 
+        self.transcribe_button = QPushButton(QIcon.fromTheme("document-export"), "", self)
+        self.transcribe_button.clicked.connect(self.transcribe_audio_button)
+        self.transcribe_button.setIconSize(QtCore.QSize(48, 48))  # Set icon size
+        self.transcribe_button.setToolTip("Transcribe Audio")
+        self.transcribe_button.setStyleSheet("background-color: #555555;")
+
 
         self.status_label = QLabel("Status: Ready", self)
 
@@ -55,6 +62,7 @@ class AudioRecorderPlayer(QWidget):
         button_layout.addWidget(self.stop_button)
         button_layout.addWidget(self.play_button)
         button_layout.addWidget(self.pause_button)
+        button_layout.addWidget(self.transcribe_button)
         button_layout.addWidget(self.status_label)
 
 
@@ -82,6 +90,7 @@ class AudioRecorderPlayer(QWidget):
         self.setLayout(control_layout)
         self.update_file_list()
         self.stream = pyaudio.PyAudio()
+        self.transcriber = SoundTranscriber()
 
 
         self.plot_interval_ms = 10  # Update the waveform every 100 milliseconds
@@ -95,20 +104,8 @@ class AudioRecorderPlayer(QWidget):
         self.recording_thread = None
         self.recording = False
 
-        
-    def transcribe_audio(self, file_path):
-        model = whisper.load_model("base")
-        audio = whisper.load_audio(file_path)
-        audio = whisper.pad_or_trim(audio)
-        mel = whisper.log_mel_spectrogram(audio).to(model.device)
-        _, probs = model.detect_language(mel)
-        detected_language = max(probs, key=probs.get)
-        options = whisper.DecodingOptions(fp16=False)
-        result = whisper.decode(model, mel, options)
-        return detected_language, result.text
-    
 
-    def plot_waveform(self, cursor_position=None):
+    def plot_waveform(self):
         if self.frames:
             samples = np.frombuffer(b''.join(self.frames), dtype=np.int16)
             x_values = np.arange(0, len(samples), 1)
@@ -131,6 +128,24 @@ class AudioRecorderPlayer(QWidget):
             self.plot_canvas.set_xticks(x_tick_positions)
             self.plot_canvas.set_xticklabels(['{:.2f}s'.format(t) for t in x_tick_labels])
             self.plot_widget.canvas.draw()
+
+    def transcribe_audio_button(self):
+        selected_item = self.file_list_widget.currentItem()
+        if selected_item:
+            file_name = selected_item.text()
+            file_path = os.path.join(".", file_name)  # Assuming files are in the current directory
+
+            # Check if the file exists before attempting to transcribe it
+            if os.path.exists(file_path):
+                detected_language, transcribed_text = self.transcriber.transcribe_audio(file_path)
+                print(f"Detected language: {detected_language}")
+                print(f"Transcribed text: {transcribed_text}")
+                # Update the QTextEdit widgets with detected language and transcribed text
+                self.detected_language_box.setPlainText("Detected Language: " + detected_language)
+                self.transcription_box.setPlainText("Transcribed Text: " + transcribed_text)
+            else:
+                print("File not found:", file_path)  # Print an error message if the file doesn't exist
+
 
 
     def start_recording(self):
@@ -231,13 +246,6 @@ class AudioRecorderPlayer(QWidget):
                 stream.stop_stream()
                 stream.close()
                 wf.close()
-
-                detected_language, transcribed_text = self.transcribe_audio(file_path)
-                print(f"Detected language: {detected_language}")
-                print(f"Transcribed text: {transcribed_text}")
-                # Update the QTextEdit widgets with detected language and transcribed text
-                self.detected_language_box.setPlainText("Detected Language: " + detected_language)
-                self.transcription_box.setPlainText("Transcribed Text: " + transcribed_text)
 
                 # Terminate the new PyAudio object after playback
                 p.terminate()
