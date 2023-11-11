@@ -1,5 +1,4 @@
 import datetime
-import sys
 import os
 import threading
 import wave
