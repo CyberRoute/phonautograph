@@ -1,6 +1,7 @@
 import datetime
 import os
 import threading
+import time
 import wave
 import pyaudio
 import numpy as np
@@ -14,10 +15,14 @@ from PyQt5.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QProgressBar,
 )
 from PyQt5.QtGui import QIcon
+from PyQt5 import QtGui
 from PyQt5 import QtCore
 from transcriber import SoundTranscriber
+from nltk.sentiment import SentimentIntensityAnalyzer
+import nltk
 
 
 class AudioRecorderPlayer(QWidget):
@@ -25,6 +30,7 @@ class AudioRecorderPlayer(QWidget):
         super().__init__()
         self.setWindowTitle("Audio Recorder and Player")
         self.setGeometry(100, 100, 400, 300)
+        self.setMinimumSize(400, 300)
 
         self.record_button = QPushButton(QIcon.fromTheme("media-record"), "", self)
         self.record_button.clicked.connect(self.start_recording)
@@ -92,6 +98,7 @@ class AudioRecorderPlayer(QWidget):
         self.transcription_box = QTextEdit(self)
         self.transcription_box.setPlaceholderText("Transcribed Text")
         self.transcription_box.setReadOnly(True)
+
         control_layout.addWidget(self.detected_language_box)
         control_layout.addWidget(self.transcription_box)
 
@@ -100,6 +107,9 @@ class AudioRecorderPlayer(QWidget):
         self.plot_canvas.set_xlabel("Time")
         self.plot_canvas.set_ylabel("Amplitude")
         control_layout.addWidget(self.plot_widget.canvas)
+
+        self.progress_bar = QProgressBar(self)  # Defining progress bar on the layout
+        control_layout.addWidget(self.progress_bar)
 
         self.setLayout(control_layout)
         self.update_file_list()
@@ -166,15 +176,33 @@ class AudioRecorderPlayer(QWidget):
                 detected_language, transcribed_text = self.transcriber.transcribe_audio(
                     file_path
                 )
+
+                # Ensure vader_lexicon resource is available
+                nltk.download("vader_lexicon")
+
+                # Perform sentiment analysis on the transcribed text
+                sentiment_analyzer = SentimentIntensityAnalyzer()
+                sentiment_scores = sentiment_analyzer.polarity_scores(transcribed_text)
+                sentiment = (
+                    "Positive" if sentiment_scores["compound"] >= 0 else "Negative"
+                )
+
                 print(f"Detected language: {detected_language}")
                 print(f"Transcribed text: {transcribed_text}")
-                # Update the QTextEdit widgets with detected language and transcribed text
+                print(f"Sentiment: {sentiment}")
+
+                # Update the QTextEdit widgets with detected language, transcribed text, and sentiment
                 self.detected_language_box.setPlainText(
                     "Detected Language: " + detected_language
                 )
                 self.transcription_box.setPlainText(
                     "Transcribed Text: " + transcribed_text
                 )
+
+                # Append sentiment information to the text in the QTextEdit widget
+                sentiment_text = f"\nSentiment: {sentiment}\n"
+                self.transcription_box.moveCursor(QtGui.QTextCursor.End)
+                self.transcription_box.insertPlainText(sentiment_text)
             else:
                 print(
                     "File not found:", file_path
@@ -279,11 +307,19 @@ class AudioRecorderPlayer(QWidget):
             rate=wf.getframerate(),
             output=True,
         )
-
+        total_frames = wf.getnframes()
+        total_time = total_frames / wf.getframerate()
         data = wf.readframes(1024)
+        start_time = time.time()
         while data and not self.playback_event.is_set():
             stream.write(data)
             data = wf.readframes(1024)
+            elapsed_time = time.time() - start_time
+            progress = int((elapsed_time / total_time) * 100)
+            # Ensure progress reaches 100% when playback is complete
+            if progress == 99:
+                progress = 100
+            self.progress_bar.setValue(progress)
 
         stream.stop_stream()
         stream.close()
