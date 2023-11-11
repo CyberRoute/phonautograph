@@ -4,13 +4,22 @@ import os
 import threading
 import wave
 import pyaudio
-import whisper
 import numpy as np
 import matplotlib.pyplot as plt
-from PyQt5.QtWidgets import QApplication, QWidget, QTextEdit, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QListWidget, QListWidgetItem
+from PyQt5.QtWidgets import (
+    QWidget,
+    QTextEdit,
+    QHBoxLayout,
+    QVBoxLayout,
+    QPushButton,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+)
 from PyQt5.QtGui import QIcon
 from PyQt5 import QtCore
 from transcriber import SoundTranscriber
+
 
 class AudioRecorderPlayer(QWidget):
     def __init__(self):
@@ -31,26 +40,33 @@ class AudioRecorderPlayer(QWidget):
         self.stop_button.setToolTip("Stop recording audio")
         self.stop_button.setStyleSheet("background-color: #555555;")
 
-        self.play_button = QPushButton(QIcon.fromTheme("media-playback-start"), "", self)
+        self.play_button = QPushButton(
+            QIcon.fromTheme("media-playback-start"), "", self
+        )
         self.play_button.clicked.connect(self.play_audio)
-        self.play_button.setEnabled(False)
+        self.play_button.setEnabled(True)
         self.play_button.setIconSize(QtCore.QSize(48, 48))  # Set icon size
         self.play_button.setToolTip("Play selected audio file")
         self.play_button.setStyleSheet("background-color: #555555;")
 
-        self.pause_button = QPushButton(QIcon.fromTheme("media-playback-pause"), "", self)
+        self.pause_button = QPushButton(
+            QIcon.fromTheme("media-playback-pause"), "", self
+        )
         self.pause_button.clicked.connect(self.pause_audio)
-        self.pause_button.setEnabled(False)
+        self.pause_button.setEnabled(True)
         self.pause_button.setIconSize(QtCore.QSize(48, 48))
         self.pause_button.setToolTip("Pause audio playback")
         self.pause_button.setStyleSheet("background-color: #555555;")
 
-        self.transcribe_button = QPushButton(QIcon.fromTheme("document-export"), "", self)
+        self.transcribe_button = QPushButton(
+            QIcon.fromTheme("document-export"), "", self
+        )
         self.transcribe_button.clicked.connect(self.transcribe_audio_button)
+        self.transcribe_button.setEnabled(True)
+
         self.transcribe_button.setIconSize(QtCore.QSize(48, 48))  # Set icon size
         self.transcribe_button.setToolTip("Transcribe Audio")
         self.transcribe_button.setStyleSheet("background-color: #555555;")
-
 
         self.status_label = QLabel("Status: Ready", self)
 
@@ -64,7 +80,6 @@ class AudioRecorderPlayer(QWidget):
         button_layout.addWidget(self.pause_button)
         button_layout.addWidget(self.transcribe_button)
         button_layout.addWidget(self.status_label)
-
 
         # Nested QVBoxLayout for other widgets
         control_layout = QVBoxLayout()
@@ -83,8 +98,8 @@ class AudioRecorderPlayer(QWidget):
 
         self.plot_widget = plt.figure()
         self.plot_canvas = self.plot_widget.add_subplot(111)
-        self.plot_canvas.set_xlabel('Time')
-        self.plot_canvas.set_ylabel('Amplitude')
+        self.plot_canvas.set_xlabel("Time")
+        self.plot_canvas.set_ylabel("Amplitude")
         control_layout.addWidget(self.plot_widget.canvas)
 
         self.setLayout(control_layout)
@@ -92,9 +107,10 @@ class AudioRecorderPlayer(QWidget):
         self.stream = pyaudio.PyAudio()
         self.transcriber = SoundTranscriber()
 
-
         self.plot_interval_ms = 10  # Update the waveform every 100 milliseconds
-        self.frames_per_update = 44100 // 1024 * (self.plot_interval_ms // 1000) or 1  # Minimum 1 frame per update
+        self.frames_per_update = (
+            44100 // 1024 * (self.plot_interval_ms // 1000) or 1
+        )  # Minimum 1 frame per update
 
         self.sample_width = 2  # 2 bytes for 16-bit audio
         self.channels = 1  # Mono audio
@@ -103,50 +119,67 @@ class AudioRecorderPlayer(QWidget):
         self.audio_stream = None
         self.recording_thread = None
         self.recording = False
-
+        self.playback_thread = None
+        self.playback_event = threading.Event()
 
     def plot_waveform(self):
         if self.frames:
-            samples = np.frombuffer(b''.join(self.frames), dtype=np.int16)
+            samples = np.frombuffer(b"".join(self.frames), dtype=np.int16)
             x_values = np.arange(0, len(samples), 1)
             self.plot_canvas.clear()
-            self.plot_canvas.set_xlabel('Time')
-            self.plot_canvas.set_ylabel('Amplitude')
+            self.plot_canvas.set_xlabel("Time")
+            self.plot_canvas.set_ylabel("Amplitude")
             self.plot_canvas.set_ylim(-32768, 32768)
-            self.plot_canvas.set_facecolor('black')
-            self.plot_canvas.plot(x_values, samples, color='green')
+            self.plot_canvas.set_facecolor("black")
+            self.plot_canvas.plot(x_values, samples, color="green")
 
             # Add horizontal lines for amplitudes
-            self.plot_canvas.axhline(y=0, color='white', linewidth=1, linestyle='--')
-            self.plot_canvas.axhline(y=16384, color='white', linewidth=1, linestyle='--')
-            self.plot_canvas.axhline(y=-16384, color='white', linewidth=1, linestyle='--')
+            self.plot_canvas.axhline(y=0, color="white", linewidth=1, linestyle="--")
+            self.plot_canvas.axhline(
+                y=16384, color="white", linewidth=1, linestyle="--"
+            )
+            self.plot_canvas.axhline(
+                y=-16384, color="white", linewidth=1, linestyle="--"
+            )
 
             # Set x-ticks and labels
             num_ticks = 10
             x_tick_positions = np.linspace(0, len(samples) - 1, num_ticks)
-            x_tick_labels = np.linspace(0, len(samples) - 1, num_ticks) / self.sample_rate
+            x_tick_labels = (
+                np.linspace(0, len(samples) - 1, num_ticks) / self.sample_rate
+            )
             self.plot_canvas.set_xticks(x_tick_positions)
-            self.plot_canvas.set_xticklabels(['{:.2f}s'.format(t) for t in x_tick_labels])
+            self.plot_canvas.set_xticklabels(
+                ["{:.2f}s".format(t) for t in x_tick_labels]
+            )
             self.plot_widget.canvas.draw()
 
     def transcribe_audio_button(self):
         selected_item = self.file_list_widget.currentItem()
         if selected_item:
             file_name = selected_item.text()
-            file_path = os.path.join(".", file_name)  # Assuming files are in the current directory
+            file_path = os.path.join(
+                ".", file_name
+            )  # Assuming files are in the current directory
 
             # Check if the file exists before attempting to transcribe it
             if os.path.exists(file_path):
-                detected_language, transcribed_text = self.transcriber.transcribe_audio(file_path)
+                detected_language, transcribed_text = self.transcriber.transcribe_audio(
+                    file_path
+                )
                 print(f"Detected language: {detected_language}")
                 print(f"Transcribed text: {transcribed_text}")
                 # Update the QTextEdit widgets with detected language and transcribed text
-                self.detected_language_box.setPlainText("Detected Language: " + detected_language)
-                self.transcription_box.setPlainText("Transcribed Text: " + transcribed_text)
+                self.detected_language_box.setPlainText(
+                    "Detected Language: " + detected_language
+                )
+                self.transcription_box.setPlainText(
+                    "Transcribed Text: " + transcribed_text
+                )
             else:
-                print("File not found:", file_path)  # Print an error message if the file doesn't exist
-
-
+                print(
+                    "File not found:", file_path
+                )  # Print an error message if the file doesn't exist
 
     def start_recording(self):
         self.record_button.setEnabled(False)
@@ -169,23 +202,27 @@ class AudioRecorderPlayer(QWidget):
 
     def update_file_list(self):
         # Path to the directory where .wav files are stored
-        directory_path = "."  # Change this to the directory path where your .wav files are stored
-        wav_files = [file for file in os.listdir(directory_path) if file.endswith(".wav")]
+        directory_path = (
+            "."  # Change this to the directory path where your .wav files are stored
+        )
+        wav_files = [
+            file for file in os.listdir(directory_path) if file.endswith(".wav")
+        ]
 
         # Update the file list widget with the .wav files from the directory
         self.file_list_widget.clear()
         for file_name in wav_files:
             item = QListWidgetItem(file_name)
             self.file_list_widget.addItem(item)
-                
 
     def initialize_audio_stream(self):
-        stream = self.stream.open(format=pyaudio.paInt16,
-                        channels=self.channels,
-                        rate=self.sample_rate,
-                        frames_per_buffer=1024,
-                        input=True
-                        )
+        stream = self.stream.open(
+            format=pyaudio.paInt16,
+            channels=self.channels,
+            rate=self.sample_rate,
+            frames_per_buffer=1024,
+            input=True,
+        )
         return stream
 
     def stop_recording(self):
@@ -203,51 +240,61 @@ class AudioRecorderPlayer(QWidget):
         self.update_file_list()
 
     def save_audio_to_file(self):
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Format the timestamp as desired
+        timestamp = datetime.datetime.now().strftime(
+            "%Y-%m-%d_%H-%M-%S"
+        )  # Format the timestamp as desired
         file_name_with_timestamp = f"recorded_audio_{timestamp}.wav"
         item = QListWidgetItem(file_name_with_timestamp)
         self.file_list_widget.addItem(item)
-        
-        with wave.open(file_name_with_timestamp, 'wb') as wf:
+
+        with wave.open(file_name_with_timestamp, "wb") as wf:
             wf.setnchannels(self.channels)
             wf.setsampwidth(self.sample_width)
             wf.setframerate(self.sample_rate)
-            wf.writeframes(b''.join(self.frames))
+            wf.writeframes(b"".join(self.frames))
             wf.close()
-
-    def pause_audio(self):
-        # Pause the audio playback logic here
-        # Update UI or perform any other necessary actions
-        pass
 
     def play_audio(self):
         selected_item = self.file_list_widget.currentItem()
         if selected_item:
             file_name = selected_item.text()
-            file_path = os.path.join(".", file_name)  # Assuming files are in the current directory
+            file_path = os.path.join(
+                ".", file_name
+            )  # Assuming files are in the current directory
 
-            # Check if the file exists before attempting to play it
             if os.path.exists(file_path):
-                wf = wave.open(file_path, 'rb')
-
-                # Create a new PyAudio object for playback
-                p = pyaudio.PyAudio()
-
-                stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
-                                channels=wf.getnchannels(),
-                                rate=wf.getframerate(),
-                                output=True)
-
-                data = wf.readframes(1024)  # Read audio data in chunks
-                while data:
-                    stream.write(data)  # Play audio data
-                    data = wf.readframes(1024)
-
-                stream.stop_stream()
-                stream.close()
-                wf.close()
-
-                # Terminate the new PyAudio object after playback
-                p.terminate()
+                self.playback_thread = threading.Thread(
+                    target=self.play_audio_thread, args=(file_path,)
+                )
+                self.playback_thread.start()
             else:
-                print("File not found:", file_path)  # Print an error message if the file doesn't exist
+                print("File not found:", file_path)
+
+    def play_audio_thread(self, file_path):
+        wf = wave.open(file_path, "rb")
+        p = pyaudio.PyAudio()
+
+        stream = p.open(
+            format=p.get_format_from_width(wf.getsampwidth()),
+            channels=wf.getnchannels(),
+            rate=wf.getframerate(),
+            output=True,
+        )
+
+        data = wf.readframes(1024)
+        while data and not self.playback_event.is_set():
+            stream.write(data)
+            data = wf.readframes(1024)
+
+        stream.stop_stream()
+        stream.close()
+        wf.close()
+        p.terminate()
+
+        self.playback_event.clear()
+        self.status_label.setText("Audio playback paused")
+
+    def pause_audio(self):
+        if self.playback_thread and self.playback_thread.is_alive():
+            self.playback_event.set()
+            self.status_label.setText("Audio paused")
