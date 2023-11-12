@@ -161,11 +161,15 @@ class AudioRecorderPlayer(QWidget):
         selected_item = self.file_list_widget.currentItem()
         if selected_item:
             file_name = selected_item.text()
-            file_path = os.path.join(".", file_name)  # Assuming files are in the current directory
+            file_path = os.path.join(
+                ".", file_name
+            )  # Assuming files are in the current directory
 
             # Check if the file exists before attempting to transcribe it
             if os.path.exists(file_path):
-                detected_language, transcribed_text = self.transcriber.transcribe_audio(file_path)
+                detected_language, transcribed_text = self.transcriber.transcribe_audio(
+                    file_path
+                )
 
                 # Ensure vader_lexicon resource is available
                 nltk.download("vader_lexicon")
@@ -173,7 +177,9 @@ class AudioRecorderPlayer(QWidget):
                 # Perform sentiment analysis on the transcribed text
                 sentiment_analyzer = SentimentIntensityAnalyzer()
                 sentiment_scores = sentiment_analyzer.polarity_scores(transcribed_text)
-                sentiment = "Positive" if sentiment_scores["compound"] >= 0 else "Negative"
+                sentiment = (
+                    "Positive" if sentiment_scores["compound"] >= 0 else "Negative"
+                )
 
                 # Format the text with detected language, transcribed text, and sentiment
                 formatted_text = (
@@ -189,7 +195,9 @@ class AudioRecorderPlayer(QWidget):
                 # Update the QTextEdit widget with formatted text
                 self.transcription_box.setHtml(formatted_text)
             else:
-                print("File not found:", file_path)  # Print an error message if the file doesn't exist
+                print(
+                    "File not found:", file_path
+                )  # Print an error message if the file doesn't exist
 
     def start_recording(self):
         self.record_button.setEnabled(False)
