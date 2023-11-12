@@ -77,11 +77,10 @@ This is a simple Audio Recorder and Player application built using Python and Py
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the BSD License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
 - Icons by [FontAwesome](https://fontawesome.com/).
 - Sentiment analysis using [NLTK](https://www.nltk.org/).
 
-Feel free to customize this README to better suit your project and provide more detailed instructions or information.
