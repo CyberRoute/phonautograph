@@ -38,7 +38,7 @@ This is a simple Audio Recorder and Player application built using Python and Py
 1. Clone the repository:
 
     ```bash
-    git clone https://github.com/your-username/audio-recorder-player.git
+    git clone https://github.com/CyberRoute/phonautograph.git
     ```
 
 2. Install the required dependencies:
