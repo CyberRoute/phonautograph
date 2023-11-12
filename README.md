@@ -81,6 +81,5 @@ This project is licensed under the BSD License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Icons by [FontAwesome](https://fontawesome.com/).
 - Sentiment analysis using [NLTK](https://www.nltk.org/).
 
