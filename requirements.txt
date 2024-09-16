@@ -45,7 +45,7 @@ six==1.16.0
 sympy==1.12
 tiktoken==0.5.1
 torch==2.2.0
-tqdm==4.66.1
+tqdm==4.66.3
 triton==2.0.0
 typing_extensions==4.8.0
 urllib3==2.2.2
